@@ -547,7 +547,7 @@ export class CowayPlatformAccessory {
     const { data } = (await (
       await this.platform.fetch(url)
     ).json()) as Response<DeviceData>;
-    this.platform.log.debug("updated status", data);
+    this.platform.log.debug("updated status");
     this.data = data;
   }
 
