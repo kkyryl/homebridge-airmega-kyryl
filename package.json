@@ -1,8 +1,8 @@
 {
   "displayName": "Coway Airmega",
   "name": "@apexskier/homebridge-airmega",
-  "version": "1.1.13",
-  "description": "Control the Coway Airmega 250S air purifier in homebridge.",
+  "version": "1.1.9",
+  "description": "Control the Coway Airmega 'S' Series air purifiers in homebridge.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
