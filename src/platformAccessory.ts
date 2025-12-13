@@ -62,8 +62,9 @@ enum Mode {
   Manual = "0",
   Smart = "1",
   Sleep = "2",
-  Rapid = "5",
   Off = "4",
+  Rapid = "5",
+  SmartEco = "6",
 }
 
 enum AirQuality {
@@ -237,6 +238,7 @@ export class CowayPlatformAccessory {
       .onGet(() => {
         switch (this.guardedOnlineData().prodStatus.prodMode) {
           case Mode.Smart:
+          case Mode.SmartEco:
           case Mode.Rapid: // max speed until AQI is good for more than 5 minutes, then smart
           case Mode.Sleep:
             return this.platform.Characteristic.TargetAirPurifierState.AUTO;
@@ -328,34 +330,41 @@ export class CowayPlatformAccessory {
           case AirQuality.Inferior:
             return this.platform.Characteristic.AirQuality.INFERIOR;
           case "":
-            this.platform.log.debug(`no air quality, falling back to pm2.5`);
+            this.platform.log.debug(`no air quality, falling back to pm`);
             break;
           default:
             this.platform.log.warn(
-              `unknown air quality "${airQuality}", falling back to pm2.5`,
+              `unknown air quality "${airQuality}", falling back to pm`,
             );
         }
 
         // fall back to pm2.5
-        const { dustpm25 } = this.guardedOnlineData().IAQ;
-        const pm25 = parseInt(dustpm25, 10);
-        if (pm25 >= 151) {
+        const { dustpm25, dustpm10, dustpm1 } = this.guardedOnlineData().IAQ;
+        let pmValue = -1;
+        if(dustpm25 !== '') {
+          pmValue = parseInt(dustpm25, 10);
+        } else if (dustpm10 !== '') {
+          pmValue = parseInt(dustpm10, 10);
+        } else if (dustpm1 !== '') {
+          pmValue = parseInt(dustpm1, 10);
+        }
+
+        if (pmValue >= 151) {
           return this.platform.Characteristic.AirQuality.POOR;
         }
-        if (pm25 >= 56) {
+        if (pmValue >= 56) {
           return this.platform.Characteristic.AirQuality.INFERIOR;
         }
-        if (pm25 >= 36) {
+        if (pmValue >= 36) {
           return this.platform.Characteristic.AirQuality.FAIR;
         }
-        if (pm25 >= 12) {
+        if (pmValue >= 12) {
           return this.platform.Characteristic.AirQuality.GOOD;
         }
-        if (pm25 >= 0) {
+        if (pmValue >= 0) {
           return this.platform.Characteristic.AirQuality.EXCELLENT;
         }
-        return this.platform.Characteristic.AirQuality.EXCELLENT;
-        // throw new Error(`unknown dustpm25 ${dustpm25}`);
+        throw new Error(`unknown dustpm: ${dustpm25} / ${dustpm10} / ${dustpm1}`);
       });
     indoorAirQualityService
       .getCharacteristic(this.platform.Characteristic.PM2_5Density)
