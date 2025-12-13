@@ -247,6 +247,8 @@ export class CowayPlatformAccessory {
 
           if (value === 0) {
             // special case to allow setting mode from HomeKit automations
+            // When creating an automation and setting mode to "Auto" a fan value will be passed and will override the mode.
+            // Passing value as 0 with mode "Auto" switches to Smart mode as desired.
             return this.controlDevice([
               {
                 funcId: FunctionId.Mode,
@@ -254,6 +256,7 @@ export class CowayPlatformAccessory {
               },
             ]);
           }
+
           let fan: Fan;
           if (value > 66) {
             fan = Fan.High;
@@ -514,8 +517,8 @@ export class CowayPlatformAccessory {
     return (await (await this.platform.fetch(url)).json()) as Response<{
       controlStatus: {
         [FunctionId.Power]: Power; // "1"
-        [FunctionId.Mode]: Mode; // "1"
-        [FunctionId.Fan]: Fan; // "1"
+        [FunctionId.Mode]: Mode; // "2"
+        [FunctionId.Fan]: Fan; // "3"
         [FunctionId.Light]: Light;
         "0008": string; // "0"
         "000A": string; // "2"
