@@ -18,14 +18,14 @@ export interface AccessoryContext {
 enum FunctionId {
   Power = "0001",
   Mode = "0002",
-  Fan = "0003",
+  AirVolume = "0003",
   Light = "0007",
 }
 
 type FunctionValue = {
   [FunctionId.Power]: Power;
   [FunctionId.Mode]: Mode;
-  [FunctionId.Fan]: Fan;
+  [FunctionId.AirVolume]: AirVolume;
   [FunctionId.Light]: Light;
 };
 
@@ -52,11 +52,14 @@ enum Light {
   Off = "0",
 }
 
-enum Fan {
-  Low = "1",
-  Medium = "2",
-  High = "3",
-  Off = "0",
+// Combo of fan speed and mode
+enum AirVolume {
+  One = "1",
+  Two = "2",
+  Three = "3",
+  Rapid = "5",
+  // ??? = "9", // seen this once, not sure what it is
+  Off = "0", // also shows for sleep
   Unknown = "99",
 }
 
@@ -142,7 +145,7 @@ interface DeviceData {
   prodStatus: {
     AICare: "";
     humidification: "";
-    airVolume: Fan;
+    airVolume: AirVolume;
     dustPollution: "1";
     dustSensitivity: "2";
     light: Light;
@@ -251,21 +254,29 @@ export class CowayPlatformAccessory {
           if (typeof value !== "number") {
             throw new Error(`unexpected value ${value}`);
           }
-
-          let fan: Fan;
-          if (value > 66) {
-            fan = Fan.High;
-          } else if (value > 33) {
-            fan = Fan.Medium;
+          let airVolume: AirVolume;
+          if (value > 80) {
+            airVolume = AirVolume.Rapid;
+          } else if (value > 50) {
+            airVolume = AirVolume.Three;
+          } else if (value > 25) {
+            airVolume = AirVolume.Two;
+          } else if (value > 0) {
+            airVolume = AirVolume.One;
           } else {
-            fan = Fan.Low;
+            airVolume = AirVolume.Off;
           }
-          return this.controlDevice([
+          await this.controlDevice([
             {
-              funcId: FunctionId.Fan,
-              cmdVal: fan,
+              funcId: FunctionId.AirVolume,
+              cmdVal: airVolume,
             },
           ]);
+          // setting fan manually sets to manual mode
+          airPurifierService.updateCharacteristic(
+            this.platform.Characteristic.TargetAirPurifierState,
+            this.platform.Characteristic.TargetAirPurifierState.MANUAL,
+          );
         }),
       );
 
@@ -361,15 +372,17 @@ export class CowayPlatformAccessory {
     );
     const airVolume = this.guardedOnlineData().prodStatus.airVolume;
     switch (airVolume) {
-      case Fan.Low:
-        return 33;
-      case Fan.Medium:
-        return 66;
-      case Fan.High:
+      case AirVolume.One:
+        return 25;
+      case AirVolume.Two:
+        return 50;
+      case AirVolume.Three:
+        return 75;
+      case AirVolume.Rapid:
         return 100;
-      case Fan.Unknown:
-      case Fan.Off:
+      case AirVolume.Off:
         return 0;
+      case AirVolume.Unknown:
       default:
         throw new Error(`unknown fan ${airVolume}`);
     }
@@ -400,7 +413,7 @@ export class CowayPlatformAccessory {
     if (prodStatus.prodMode === Mode.Off) {
       return this.platform.Characteristic.CurrentAirPurifierState.INACTIVE;
     }
-    if (prodStatus.airVolume === Fan.Off) {
+    if (prodStatus.airVolume === AirVolume.Off) {
       return this.platform.Characteristic.CurrentAirPurifierState.IDLE;
     }
     return this.platform.Characteristic.CurrentAirPurifierState.PURIFYING_AIR;
@@ -527,7 +540,7 @@ export class CowayPlatformAccessory {
       controlStatus: {
         [FunctionId.Power]: Power; // "1"
         [FunctionId.Mode]: Mode; // "2"
-        [FunctionId.Fan]: Fan; // "3"
+        [FunctionId.AirVolume]: AirVolume; // "3"
         [FunctionId.Light]: Light;
         "0008": string; // "0"
         "000A": string; // "2"
